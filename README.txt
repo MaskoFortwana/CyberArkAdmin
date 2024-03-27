@@ -1,6 +1,8 @@
 # CyberArkAdmin
 powershell script that makes troubleshooting CyberArk servers a lot easier, more effective and faster. Just run the script and make your choice, you will surely find useful options here.
 
+## requirements: to make sure every function works as suposed to, create folders c:\install and c:\scripts on your windows. Otherwise some functions will not work.
+
 
 Currently supported functions:
 
