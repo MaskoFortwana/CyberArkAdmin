@@ -4,7 +4,7 @@ powershell script that makes troubleshooting CyberArk servers a lot easier, more
 
 Currently supported functions:
 
-------------COMMON--------------
+#------------COMMON--------------
 Type 0 verify current .net version on this machine
 Type 9 to GET status of all CyberArk services on this server
 Type 994 to copy files from \\tsclient\z\
