@@ -41,6 +41,7 @@ Type 21 to get PSM last connection component dispatcher log INFO only
 Type 22 to get PSM last connection component dispatcher log trace
 Type 23 to GET Windows App Locker logs for specific user (choose user in next step)
 Type 24 to GET ALL Windows logs for specific user (choose user in next step)
+Type 25 to identify PSM-XYZ12345678 user by name
 -------------CPM----------------
 Type 30 to open CPM bin folder
 Type 31 to open CPM Logs folder
