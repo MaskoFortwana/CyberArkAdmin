@@ -43,7 +43,7 @@ function Display-Menu {
     Write-Host -ForegroundColor Red 'Type 990 to RESTART ALL CyberArk services on this server'
     Write-Host -ForegroundColor Red 'Type 998 to STOP ALL CyberArk services on this server'
     Write-Host -ForegroundColor Red 'Type 997 to START ALL CyberArk services on this server'
-    Write-Host "-------Vault Operations---------" -ForegroundColor White
+    Write-Host "-------------Vault--------------" -ForegroundColor White
     Write-Host -ForegroundColor Green 'Type 1 to open dbparm.ini in notepad'
     Write-Host -ForegroundColor Yellow 'Type 2 to open tsparm.ini in notepad'
     Write-Host -ForegroundColor Green 'Type 3 to tail padr.log (in new window)'
@@ -78,16 +78,18 @@ function Display-Menu {
     Write-Host -ForegroundColor Green 'Type 34 to tail Casos.Debug.log in new window'
     Write-Host -ForegroundColor Yellow 'Type 34 to tail Casos.Error.log in new window'
     Write-Host "-------------PVWA---------------" -ForegroundColor White
-    Write-Host -ForegroundColor Green 'Type 30 analyze w3svc1 logs (more choices in next step)'
-    #Write-Host -ForegroundColor Green 'Type 31 to open PVWA Logs folder'
-    #Write-Host -ForegroundColor Green 'Type 32 to tail PVWA console log'
-    #Write-Host -ForegroundColor Green 'Type 39 to open RESTART IIS'
+    Write-Host -ForegroundColor Green 'Type 40 to analyze w3svc1 logs (more choices in next step)'
+    Write-Host -ForegroundColor Yellow 'Type 41 to analyze CyberArk.WebConsole.log (more choices in next step)'
+    Write-Host -ForegroundColor Green 'Type 42 to analyze PVWA.App.log (more choices in next step)'
+    Write-Host -ForegroundColor Yellow 'Type 43 to analyze PVWA.Console.log (more choices in next step)'
+    Write-Host -ForegroundColor Green 'Type 44 to analyze PVWA.Reports.log logs (more choices in next step)'
+    Write-Host -ForegroundColor Yellow 'Type 45 to analyze all PVWA logs at once (more choices in next step)'
+    Write-Host -ForegroundColor Green 'Type 46 to open PVWA Logs folder'
+    Write-Host -ForegroundColor Yellow 'Type 47 to open PVWA Conf folder'
+    Write-Host -ForegroundColor Green 'Type 48 to open IIS Logs folder'
+    Write-Host -ForegroundColor Red 'Type 49 to open RESTART IIS'
     Write-Host "--------------------------------" -ForegroundColor White
     Write-Host ' '
-    #
-    #Chosing action
-    #
-
 }
 
 # Function to check .NET version
@@ -480,6 +482,267 @@ function Get-PSMUserName {
     get-localuser | where {$_.Fullname -like "*$username*"} | Select-Object name,fullname,enabled,description
 }
 
+function Tail-W3SVC1 {
+    $logPath = "C:\inetpub\logs\LogFiles\W3SVC1"
+    $latestFile = Get-ChildItem -Path $logPath | Sort-Object LastAccessTime -Descending | Select-Object -First 1
+
+    # Ask the user for their choice
+    Write-Host "Do you want to:" -ForegroundColor Yellow
+    Write-Host "1. Tail the log file in a new window" -ForegroundColor Yellow
+    Write-Host "2. Display the last 100 lines in the current window" -ForegroundColor Yellow
+    Write-Host "3. Find a specific keyword in the log file" -ForegroundColor Yellow
+    Write-Host "Enter 1, 2 or 3:" -ForegroundColor Yellow
+    $userChoice = Read-Host
+
+    if ($userChoice -eq 1) {
+        # Tail the log file in a new window
+        $psCommand = 'cmd /c start powershell -Command { Get-Content "' + $latestFile.FullName + '" -Wait -Tail 200 }'
+        Invoke-Expression $psCommand
+    } elseif ($userChoice -eq 2) {
+        # Display the last 100 lines in the current window
+        Get-Content $latestFile.FullName -Tail 100
+    } elseif ($userChoice -eq 3) {
+        # Find a specific keyword in the log file
+        $keyword = Read-Host "Enter the keyword to search for"
+        Select-String -Path $latestFile.FullName -Pattern $keyword
+    } else {
+        Write-Host "Invalid choice. Please enter 1, 2 or 3." -ForegroundColor Red
+    }
+}
+
+function Search-PVWAWebConsoleLog {
+    $logPath = "C:\Windows\Temp\PVWA\CyberArk.WebConsole.log"
+
+    # Ask the user for their choice
+    Write-Host "Do you want to:" -ForegroundColor Yellow
+    Write-Host "1. Tail the log file in a new window" -ForegroundColor Yellow
+    Write-Host "2. Display the last 100 lines in the current window" -ForegroundColor Yellow
+    Write-Host "3. Find a specific keyword in the log file" -ForegroundColor Yellow
+    Write-Host "4. Search for specific log levels (INFO, ERROR, TRACE, CRITICAL)" -ForegroundColor Yellow
+    Write-Host "Enter 1, 2, 3 or 4:" -ForegroundColor Yellow
+    $userChoice = Read-Host
+
+    if ($userChoice -eq 1) {
+        # Tail the log file in a new window
+        $psCommand = 'cmd /c start powershell -Command { Get-Content "' + $logPath + '" -Wait -Tail 200 }'
+        Invoke-Expression $psCommand
+    } elseif ($userChoice -eq 2) {
+        # Display the last 100 lines in the current window
+        Get-Content $logPath -Tail 100
+    } elseif ($userChoice -eq 3) {
+        # Find a specific keyword in the log file
+        $keyword = Read-Host "Enter the keyword to search for"
+        Select-String -Path $logPath -Pattern $keyword
+    } elseif ($userChoice -eq 4) {
+        # Search for specific log levels
+        $logLevels = @("INFO", "ERROR", "TRACE", "CRITICAL")
+        $choice = Read-Host "Enter the number for the log level to search for (1: INFO, 2: ERROR, 3: TRACE, 4: CRITICAL)"
+        if ($choice -ge 1 -and $choice -le 4) {
+            $logLevel = $logLevels[$choice - 1]
+            Select-String -Path $logPath -Pattern $logLevel -CaseSensitive
+        } else {
+            Write-Host "Invalid choice. Please enter a number between 1 and 4." -ForegroundColor Red
+        }
+    } else {
+        Write-Host "Invalid choice. Please enter 1, 2, 3 or 4." -ForegroundColor Red
+    }
+}
+
+function Search-PVWAAppLog {
+    $logPath = "C:\Windows\Temp\PVWA\PVWA.App.log"
+
+    # Ask the user for their choice
+    Write-Host "Do you want to:" -ForegroundColor Yellow
+    Write-Host "1. Tail the log file in a new window" -ForegroundColor Yellow
+    Write-Host "2. Display the last 100 lines in the current window" -ForegroundColor Yellow
+    Write-Host "3. Find a specific keyword in the log file" -ForegroundColor Yellow
+    Write-Host "4. Search for specific log levels (INFO, ERROR, TRACE, CRITICAL)" -ForegroundColor Yellow
+    Write-Host "Enter 1, 2, 3 or 4:" -ForegroundColor Yellow
+    $userChoice = Read-Host
+
+    if ($userChoice -eq 1) {
+        # Tail the log file in a new window
+        $psCommand = 'cmd /c start powershell -Command { Get-Content "' + $logPath + '" -Wait -Tail 200 }'
+        Invoke-Expression $psCommand
+    } elseif ($userChoice -eq 2) {
+        # Display the last 100 lines in the current window
+        Get-Content $logPath -Tail 100
+    } elseif ($userChoice -eq 3) {
+        # Find a specific keyword in the log file
+        $keyword = Read-Host "Enter the keyword to search for"
+        Select-String -Path $logPath -Pattern $keyword
+    } elseif ($userChoice -eq 4) {
+        # Search for specific log levels
+        $logLevels = @("INFO", "ERROR", "TRACE", "CRITICAL")
+        $choice = Read-Host "Enter the number for the log level to search for (1: INFO, 2: ERROR, 3: TRACE, 4: CRITICAL)"
+        if ($choice -ge 1 -and $choice -le 4) {
+            $logLevel = $logLevels[$choice - 1]
+            Select-String -Path $logPath -Pattern $logLevel -CaseSensitive
+        } else {
+            Write-Host "Invalid choice. Please enter a number between 1 and 4." -ForegroundColor Red
+        }
+    } else {
+        Write-Host "Invalid choice. Please enter 1, 2, 3 or 4." -ForegroundColor Red
+    }
+}
+
+
+function Search-PVWAConsoleLog {
+    $logPath = "C:\Windows\Temp\PVWA\PVWA.Console.log"
+
+    # Ask the user for their choice
+    Write-Host "Do you want to:" -ForegroundColor Yellow
+    Write-Host "1. Tail the log file in a new window" -ForegroundColor Yellow
+    Write-Host "2. Display the last 100 lines in the current window" -ForegroundColor Yellow
+    Write-Host "3. Find a specific keyword in the log file" -ForegroundColor Yellow
+    Write-Host "4. Search for specific log levels (INFO, ERROR, TRACE, CRITICAL)" -ForegroundColor Yellow
+    Write-Host "Enter 1, 2, 3 or 4:" -ForegroundColor Yellow
+    $userChoice = Read-Host
+
+    if ($userChoice -eq 1) {
+        # Tail the log file in a new window
+        $psCommand = 'cmd /c start powershell -Command { Get-Content "' + $logPath + '" -Wait -Tail 200 }'
+        Invoke-Expression $psCommand
+    } elseif ($userChoice -eq 2) {
+        # Display the last 100 lines in the current window
+        Get-Content $logPath -Tail 100
+    } elseif ($userChoice -eq 3) {
+        # Find a specific keyword in the log file
+        $keyword = Read-Host "Enter the keyword to search for"
+        Select-String -Path $logPath -Pattern $keyword
+    } elseif ($userChoice -eq 4) {
+        # Search for specific log levels
+        $logLevels = @("INFO", "ERROR", "TRACE", "CRITICAL")
+        $choice = Read-Host "Enter the number for the log level to search for (1: INFO, 2: ERROR, 3: TRACE, 4: CRITICAL)"
+        if ($choice -ge 1 -and $choice -le 4) {
+            $logLevel = $logLevels[$choice - 1]
+            Select-String -Path $logPath -Pattern $logLevel -CaseSensitive
+        } else {
+            Write-Host "Invalid choice. Please enter a number between 1 and 4." -ForegroundColor Red
+        }
+    } else {
+        Write-Host "Invalid choice. Please enter 1, 2, 3 or 4." -ForegroundColor Red
+    }
+}
+function Search-PVWAReportsLog {
+    $logPath = "C:\Windows\Temp\PVWA\PVWA.Reports.log"
+
+    # Ask the user for their choice
+    Write-Host "Do you want to:" -ForegroundColor Yellow
+    Write-Host "1. Tail the log file in a new window" -ForegroundColor Yellow
+    Write-Host "2. Display the last 100 lines in the current window" -ForegroundColor Yellow
+    Write-Host "3. Find a specific keyword in the log file" -ForegroundColor Yellow
+    Write-Host "4. Search for specific log levels (INFO, ERROR, TRACE, CRITICAL)" -ForegroundColor Yellow
+    Write-Host "Enter 1, 2, 3 or 4:" -ForegroundColor Yellow
+    $userChoice = Read-Host
+
+    if ($userChoice -eq 1) {
+        # Tail the log file in a new window
+        $psCommand = 'cmd /c start powershell -Command { Get-Content "' + $logPath + '" -Wait -Tail 200 }'
+        Invoke-Expression $psCommand
+    } elseif ($userChoice -eq 2) {
+        # Display the last 100 lines in the current window
+        Get-Content $logPath -Tail 100
+    } elseif ($userChoice -eq 3) {
+        # Find a specific keyword in the log file
+        $keyword = Read-Host "Enter the keyword to search for"
+        Select-String -Path $logPath -Pattern $keyword
+    } elseif ($userChoice -eq 4) {
+        # Search for specific log levels
+        $logLevels = @("INFO", "ERROR", "TRACE", "CRITICAL")
+        $choice = Read-Host "Enter the number for the log level to search for (1: INFO, 2: ERROR, 3: TRACE, 4: CRITICAL)"
+        if ($choice -ge 1 -and $choice -le 4) {
+            $logLevel = $logLevels[$choice - 1]
+            Select-String -Path $logPath -Pattern $logLevel -CaseSensitive
+        } else {
+            Write-Host "Invalid choice. Please enter a number between 1 and 4." -ForegroundColor Red
+        }
+    } else {
+        Write-Host "Invalid choice. Please enter 1, 2, 3 or 4." -ForegroundColor Red
+    }
+}
+
+function Search-AllPVWALogs {
+    $logPaths = @(
+        "C:\inetpub\logs\LogFiles\W3SVC1",
+        "C:\Windows\Temp\PVWA\CyberArk.WebConsole.log",
+        "C:\Windows\Temp\PVWA\PVWA.App.log",
+        "C:\Windows\Temp\PVWA\PVWA.Console.log",
+        "C:\Windows\Temp\PVWA\PVWA.Reports.log"
+    )
+
+    # Ask the user for their choice
+    Write-Host "Do you want to:" -ForegroundColor Yellow
+    Write-Host "1. Tail the log files in new windows" -ForegroundColor Yellow
+    Write-Host "2. Display the last 100 lines in the current windows" -ForegroundColor Yellow
+    Write-Host "3. Find a specific keyword in the log files" -ForegroundColor Yellow
+    Write-Host "4. Search for specific log levels (INFO, ERROR, TRACE, CRITICAL)" -ForegroundColor Yellow
+    Write-Host "Enter 1, 2, 3 or 4:" -ForegroundColor Yellow
+    $userChoice = Read-Host
+
+    $keyword = $null
+    if ($userChoice -eq 3) {
+        $keyword = Read-Host "Enter the keyword to search for"
+    }
+
+    $logLevel = $null
+    if ($userChoice -eq 4) {
+        $logLevels = @("INFO", "ERROR", "TRACE", "CRITICAL")
+        $choice = Read-Host "Enter the number for the log level to search for (1: INFO, 2: ERROR, 3: TRACE, 4: CRITICAL)"
+        if ($choice -ge 1 -and $choice -le 4) {
+            $logLevel = $logLevels[$choice - 1]
+        } else {
+            Write-Host "Invalid choice. Please enter a number between 1 and 4." -ForegroundColor Red
+            return
+        }
+    }
+
+    foreach ($logPath in $logPaths) {
+        if ($userChoice -eq 1) {
+            # Tail the log file in a new window
+            $psCommand = 'cmd /c start powershell -Command { Get-Content "' + $logPath + '" -Wait -Tail 200 }'
+            Invoke-Expression $psCommand
+        } elseif ($userChoice -eq 2) {
+            # Display the last 100 lines in the current window
+            Write-Host "File: $logPath" -ForegroundColor Green
+            Get-Content $logPath -Tail 100
+        } elseif ($userChoice -eq 3) {
+            # Find a specific keyword in the log file
+            Write-Host "File: $logPath" -ForegroundColor Green
+            Select-String -Path $logPath -Pattern $keyword
+        } elseif ($userChoice -eq 4) {
+            # Search for specific log levels
+            Write-Host "File: $logPath" -ForegroundColor Green
+            Select-String -Path $logPath -Pattern $logLevel -CaseSensitive
+        } else {
+            Write-Host "Invalid choice. Please enter 1, 2, 3 or 4." -ForegroundColor Red
+        }
+    }
+}
+
+function Open-PVWATempFolder {
+    # Open the folder C:\Windows\Temp\PVWA
+    Start-Process "explorer.exe" -ArgumentList "/e,C:\Windows\Temp\PVWA"
+}
+
+function Open-CyberArkFolder {
+    # Open the folder C:\CyberArk\Password Vault Web Access
+    Start-Process "explorer.exe" -ArgumentList "/e,C:\CyberArk\Password Vault Web Access"
+}
+
+function Open-InetpubLogsFolder {
+    # Open the folder C:\inetpub\logs
+    Start-Process "explorer.exe" -ArgumentList "/e,C:\inetpub\logs"
+}
+
+function Restart-IIS {
+    # Run command iisreset /restart and then iisreset /status
+    Invoke-Expression "cmd.exe /c iisreset /restart"
+    Start-Sleep -Seconds 2
+    Invoke-Expression "cmd.exe /c iisreset /status"
+}
+
+
 # Display Menu and Capture User Input
 Display-Menu
 Write-Host "Type the number and press enter..." -ForegroundColor Yellow -nonewline; $action = Read-Host
@@ -525,6 +788,16 @@ switch ($action) {
     '33' { Tail-CPMLog -LogType "pm_error" }
     '34' { Tail-CPMLog -LogType "Casos.Debug" }
     '35' { Tail-CPMLog -LogType "Casos.Error" }
+    '40' { Tail-W3SVC1 }
+    '41' { Search-PVWAWebConsoleLog }
+    '42' { Search-PVWAAppLog }
+    '43' { Search-PVWAConsoleLog }
+    '44' { Search-PVWAReportsLog }
+    '45' { Search-AllPVWALogs }
+    '46' { Open-PVWATempFolder }
+    '47' { Open-CyberArkFolder }
+    '48' { Open-InetpubLogsFolder }
+    '49' { Restart-IIS }
     default {
         Write-Host "Invalid option selected. Please try again." -ForegroundColor Red
     }
