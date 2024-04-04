@@ -59,7 +59,7 @@ Type 45 to analyze all PVWA logs at once (more choices in next step)
 Type 46 to open PVWA Logs folder
 Type 47 to open PVWA Conf folder
 Type 48 to open IIS Logs folder
-Type 49 to open RESTART IIS
+Type 49 to RESTART IIS
 --------------------------------
 
 Type the number and press enter...
