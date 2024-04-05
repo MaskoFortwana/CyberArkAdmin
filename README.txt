@@ -15,7 +15,7 @@ Type 996 to open hosts file in notepad as admin
 Type 990 to RESTART ALL CyberArk services on this server
 Type 998 to STOP ALL CyberArk services on this server
 Type 997 to START ALL CyberArk services on this server
--------Vault Operations---------
+-------------Vault--------------
 Type 1 to open dbparm.ini in notepad
 Type 2 to open tsparm.ini in notepad
 Type 3 to tail padr.log (in new window)
@@ -50,6 +50,16 @@ Type 33 to tail pm_error.log in new window
 Type 34 to tail Casos.Debug.log in new window
 Type 34 to tail Casos.Error.log in new window
 -------------PVWA---------------
+Type 40 to analyze w3svc1 logs (more choices in next step)
+Type 41 to analyze CyberArk.WebConsole.log (more choices in next step)
+Type 42 to analyze PVWA.App.log (more choices in next step)
+Type 43 to analyze PVWA.Console.log (more choices in next step)
+Type 44 to analyze PVWA.Reports.log logs (more choices in next step)
+Type 45 to analyze all PVWA logs at once (more choices in next step)
+Type 46 to open PVWA Logs folder
+Type 47 to open PVWA Conf folder
+Type 48 to open IIS Logs folder
+Type 49 to RESTART IIS
 --------------------------------
 
 Type the number and press enter...
