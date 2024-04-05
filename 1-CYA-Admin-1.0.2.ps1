@@ -87,7 +87,7 @@ function Display-Menu {
     Write-Host -ForegroundColor Green 'Type 46 to open PVWA Logs folder'
     Write-Host -ForegroundColor Yellow 'Type 47 to open PVWA Conf folder'
     Write-Host -ForegroundColor Green 'Type 48 to open IIS Logs folder'
-    Write-Host -ForegroundColor Red 'Type 49 to open RESTART IIS'
+    Write-Host -ForegroundColor Red 'Type 49 to RESTART IIS'
     Write-Host "--------------------------------" -ForegroundColor White
     Write-Host ' '
 }
