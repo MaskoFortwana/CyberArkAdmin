@@ -317,10 +317,29 @@ function Search-UserLogs {
     $logFiles = Get-ChildItem "C:\Program Files (x86)\CyberArk\PSM\Logs\Components\*.log"
     $matchedFiles = @()
 
+    $idStrings = @()
+
+    # First loop: find files that match the username
     foreach ($file in $logFiles) {
         if ($file.CreationTime.Date -ge $startDate.Date -and $file.CreationTime.Date -le $endDate.Date -and (Select-String -Path $file.FullName -Pattern $username -Quiet)) {
-            $matchedFiles += $file
-            Write-Output ("File: " + $file.FullName + " | Created on: " + $file.CreationTime)
+            # Extract the identification string from the filename
+            $idString = $file.Name.Split('.')[0]
+            $idStrings += $idString
+        }
+    }
+
+    if ($idStrings.Count -eq 0) {
+        Write-Host "No matching log files found."
+        return
+    }
+
+    # Second loop: add all files that start with any of the identification strings to the $matchedFiles array
+    foreach ($idString in $idStrings) {
+        foreach ($file in $logFiles) {
+            if ($file.Name.StartsWith($idString)) {
+                $matchedFiles += $file
+                Write-Output ("File: " + $file.FullName + " | Created on: " + $file.CreationTime)
+            }
         }
     }
 
