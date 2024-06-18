@@ -180,7 +180,64 @@ function Open-PSMConfigureAppLockerXml {
 function Run-PSMConfigureAppLocker {
     Write-Host -ForegroundColor Yellow "Running PSMConfigureAppLocker.ps1"
     Set-Location 'C:\Program Files (x86)\CyberArk\PSM\Hardening\'
-    .\PSMConfigureAppLocker.ps1
+
+    # Check CyberArk version
+    $version = (Get-Item "C:\Program Files (x86)\CyberArk\PSM\CAPSM.exe").VersionInfo.ProductVersion.Split('.')[0]
+    if ([int]$version -lt 14) {
+        Write-Host -ForegroundColor Yellow "Version check: CyberArk version is lower than 14. Running the applocker the old way..."
+        Write-Host -ForegroundColor Yellow "Command preview: .\PSMConfigureAppLocker.ps1"
+        Write-Host "CyberArk version is lower than 14, may I run the applocker the old way? - If you are using PSMConnect and PSMAdminConnect in domain, it needs to be configured in PSMConfigureAppLocker.ps1 script. (Y/N)"
+        $confirmation = Read-Host
+        if ($confirmation -ne 'Y') {
+            Write-Host "Aborting..."
+            return
+        }
+        .\PSMConfigureAppLocker.ps1
+        Set-Location C:\scripts\
+        return
+    }
+    elseif ([int]$version -ge 14) {
+        Write-Host -ForegroundColor Yellow "Version check: CyberArk version is higher than 14. Running the applocker the new way..."
+    }
+
+    # Get the hostname
+    $hostname = $env:COMPUTERNAME
+    
+    # Check if the users exist in the Remote Desktop Users group
+    $rdUsers = Get-LocalGroupMember -Group "Remote Desktop Users" | Select-Object -ExpandProperty Name
+    $domainUserPattern = '^(.+?)\\(PSMConnect|PSMAdminConnect)$'
+    $plainUserPattern = '^(PSMConnect|PSMAdminConnect)$'
+    $hostnameUserPattern = "^$hostname\\(PSMConnect|PSMAdminConnect)$"
+
+    # Collect domain users and their corresponding prefixes
+    $domainUserMatches = $rdUsers | Where-Object { $_ -match $domainUserPattern }
+    $domainUsers = $domainUserMatches | ForEach-Object { $_ -replace $domainUserPattern, '$2' } | Select-Object -Unique
+    $domainPrefixes = $domainUserMatches | ForEach-Object { $_ -replace $domainUserPattern, '$1' } | Where-Object { $_ -ne $hostname } | Select-Object -Unique
+
+    if ($domainUsers.Count -gt 0 -and $domainPrefixes.Count -gt 0) {
+        $uniqueDomainPrefix = $domainPrefixes # Take the first unique domain prefix
+        Write-Host -ForegroundColor Yellow "Command preview: .\PSMConfigureAppLocker.ps1 -connectionUserName PSMConnect -connectionUserDomain $uniqueDomainPrefix -connectionAdminUserName PSMAdminConnect -connectionAdminUserDomain $uniqueDomainPrefix"
+        Write-Host "Found domain users: $($domainUsers -join ', ') with domain prefix: $uniqueDomainPrefix. Do you want to continue - run applocker using domain users? (Y/N)"
+        $confirmation = Read-Host
+        if ($confirmation -ne 'Y') {
+            Write-Host "Aborting..."
+            return
+        }
+        .\PSMConfigureAppLocker.ps1 -connectionUserName PSMConnect -connectionUserDomain $uniqueDomainPrefix -connectionAdminUserName PSMAdminConnect -connectionAdminUserDomain $uniqueDomainPrefix
+    } elseif ($rdUsers | Where-Object { $_ -match $plainUserPattern -or $_ -match $hostnameUserPattern }) {
+        Write-Host -ForegroundColor Yellow "Command preview: .\PSMConfigureAppLocker.ps1"
+        Write-Host "Found local or hostname users. Do you want to continue - run applocker using local or hostname users? (Y/N)"
+        $confirmation = Read-Host
+        if ($confirmation -ne 'Y') {
+            Write-Host "Aborting..."
+            return
+        }
+        .\PSMConfigureAppLocker.ps1
+    } else {
+        Write-Host "No users found. Aborting..."
+        return
+    }
+
     Set-Location C:\scripts\
 }
 
