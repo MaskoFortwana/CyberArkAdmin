@@ -40,9 +40,10 @@ function Display-Menu {
     Write-Host -ForegroundColor Green 'Type 994 to copy files from \\tsclient\z\'
     Write-Host -ForegroundColor Yellow 'Type 995 to test connectivity to any IP'
     Write-Host -ForegroundColor Green 'Type 996 to open hosts file in notepad as admin'
-    Write-Host -ForegroundColor Red 'Type 990 to RESTART ALL CyberArk services on this server'
-    Write-Host -ForegroundColor Red 'Type 998 to STOP ALL CyberArk services on this server'
-    Write-Host -ForegroundColor Red 'Type 997 to START ALL CyberArk services on this server'
+    Write-Host -ForegroundColor Green 'Type 999 to enable/disable/check clipboard and drive mapping in regedit'
+    Write-Host -ForegroundColor Red 'Type 1000 to RESTART ALL CyberArk services on this server'
+    Write-Host -ForegroundColor Red 'Type 1001 to START ALL CyberArk services on this server'
+    Write-Host -ForegroundColor Red 'Type 1002 to STOP ALL CyberArk services on this server'
     Write-Host "-------------Vault--------------" -ForegroundColor White
     Write-Host -ForegroundColor Green 'Type 1 to open dbparm.ini in notepad'
     Write-Host -ForegroundColor Yellow 'Type 2 to open tsparm.ini in notepad'
@@ -818,7 +819,74 @@ function Restart-IIS {
     Invoke-Expression "cmd.exe /c iisreset /status"
 }
 
+function Enable-ClipboardAndDriveMapping {
+    $path = "HKLM:\Software\Policies\Microsoft\Windows NT\Terminal Services"
+    $disableCdmExists = (Get-ItemProperty -Path $path).PSObject.Properties.Name -contains "fDisableCdm"
+    $disableClipboardExists = (Get-ItemProperty -Path $path).PSObject.Properties.Name -contains "fDisableClip"
 
+    if ($disableCdmExists) {
+        $disableCdm = Get-ItemProperty -Path $path -Name "fDisableCdm"
+        if ($disableCdm -eq 1) {
+            Write-Host -ForegroundColor Red "Drive mapping is currently disabled."
+        } else {
+            Write-Host -ForegroundColor Green "Drive mapping is currently enabled."
+        }
+    } else {
+        Write-Host -ForegroundColor Yellow "Drive mapping key does not exist."
+    }
+
+    if ($disableClipboardExists) {
+        $disableClipboard = Get-ItemProperty -Path $path -Name "fDisableClip"
+        if ($disableClipboard -eq 1) {
+            Write-Host -ForegroundColor Red "Clipboard is currently disabled."
+        } else {
+            Write-Host -ForegroundColor Green "Clipboard is currently enabled."
+        }
+    } else {
+        Write-Host -ForegroundColor Yellow "Clipboard key does not exist."
+    }
+
+    Write-Host "Do you want to: 1) Allow all, 2) Allow clipboard only, 3) Allow disk only, 4) Disable all?"
+    $choice = Read-Host
+
+    if ($choice -eq '1') {
+        if (-not $disableCdmExists) {
+            New-ItemProperty -Path $path -Name "fDisableCdm" -Value 0 -PropertyType "DWord"
+        } else {
+            Set-ItemProperty -Path $path -Name "fDisableCdm" -Value 0
+        }
+        if (-not $disableClipboardExists) {
+            New-ItemProperty -Path $path -Name "fDisableClip" -Value 0 -PropertyType "DWord"
+        } else {
+            Set-ItemProperty -Path $path -Name "fDisableClip" -Value 0
+        }
+        Write-Host "Both clipboard and drive mapping have been enabled."
+    } elseif ($choice -eq '2') {
+        if (-not $disableClipboardExists) {
+            New-ItemProperty -Path $path -Name "fDisableClip" -Value 0 -PropertyType "DWord"
+        } else {
+            Set-ItemProperty -Path $path -Name "fDisableClip" -Value 0
+        }
+        Write-Host "Clipboard has been enabled."
+    } elseif ($choice -eq '3') {
+        if (-not $disableCdmExists) {
+            New-ItemProperty -Path $path -Name "fDisableCdm" -Value 0 -PropertyType "DWord"
+        } else {
+            Set-ItemProperty -Path $path -Name "fDisableCdm" -Value 0
+        }
+        Write-Host "Drive mapping has been enabled."
+    } elseif ($choice -eq '4') {
+        if ($disableCdmExists) {
+            Set-ItemProperty -Path $path -Name "fDisableCdm" -Value 1
+        }
+        if ($disableClipboardExists) {
+            Set-ItemProperty -Path $path -Name "fDisableClip" -Value 1
+        }
+        Write-Host "Both clipboard and drive mapping have been disabled."
+    } else {
+        Write-Host "Invalid choice. Aborting..."
+    }
+}
 # Display Menu and Capture User Input
 Display-Menu
 Write-Host "Type the number and press enter..." -ForegroundColor Yellow -nonewline; $action = Read-Host
@@ -851,9 +919,10 @@ switch ($action) {
     '23' { Search-AppLockerLogsForUser }
     '24' { Search-AllWindowsLogsForUser }
     '25' { Get-PSMUserName }
-    '990' { Restart-CyberArkServices }
-    '998' { Stop-CyberArkServices }
-    '997' { Start-CyberArkServices }
+    '1000' { Restart-CyberArkServices }
+    '1002' { Stop-CyberArkServices }
+    '999' { Enable-ClipboardAndDriveMapping }
+    '1001' { Start-CyberArkServices }
     '01' { Collect-VaultLogs }
     '18' { Upgrade-PSM }
     '996' { Open-HostsFile }
