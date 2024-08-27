@@ -40,6 +40,7 @@ function Display-Menu {
     Write-Host -ForegroundColor Green 'Type 994 to copy files from \\tsclient\z\'
     Write-Host -ForegroundColor Yellow 'Type 995 to test connectivity to any IP'
     Write-Host -ForegroundColor Green 'Type 996 to open hosts file in notepad as admin'
+    Write-Host -ForegroundColor Yellow 'Type 997 to allow using cached credentials upon RDP connection'
     Write-Host -ForegroundColor Green 'Type 999 to enable/disable/check clipboard and drive mapping in regedit'
     Write-Host -ForegroundColor Red 'Type 1000 to RESTART ALL CyberArk services on this server'
     Write-Host -ForegroundColor Red 'Type 1001 to START ALL CyberArk services on this server'
@@ -165,7 +166,10 @@ function Get-LastPSMComponentLog {
     $lastLog = Get-ChildItem 'C:\Program Files (x86)\CyberArk\PSM\Logs\Components\' | Sort-Object LastWriteTime | Select-Object -Last 1 | Select-Object Name
     $name = $lastLog.Name
     $logs = $name.Substring(0, [Math]::Min($name.Length, 8))
+    Write-Host "These are logs from the last CyberArk session - unfiltered" -ForegroundColor Green
     Get-Content "C:\Program Files (x86)\CyberArk\PSM\Logs\Components\$logs*.*"
+    Write-Host "These are logs from the last CyberArk session - filtered for Dispatcher trace messages" -ForegroundColor Green
+    Get-Content "C:\Program Files (x86)\CyberArk\PSM\Logs\Components\$logs*.*" | Select-String -Pattern "Dispatcher trace message"
 }
 
 function Tail-PSMTraceLog {
@@ -227,7 +231,7 @@ function Run-PSMConfigureAppLocker {
         .\PSMConfigureAppLocker.ps1 -connectionUserName PSMConnect -connectionUserDomain $uniqueDomainPrefix -connectionAdminUserName PSMAdminConnect -connectionAdminUserDomain $uniqueDomainPrefix
     } elseif ($rdUsers | Where-Object { $_ -match $plainUserPattern -or $_ -match $hostnameUserPattern }) {
         Write-Host -ForegroundColor Yellow "Command preview: .\PSMConfigureAppLocker.ps1"
-        Write-Host "Found local or hostname users. Do you want to continue - run applocker using local or hostname users? (Y/N)"
+        Write-Host "Found local PSMConnect and PSMAdminConnect users. Do you want to continue - run applocker using local users? (Y/N)"
         $confirmation = Read-Host
         if ($confirmation -ne 'Y') {
             Write-Host "Aborting..."
@@ -887,6 +891,46 @@ function Enable-ClipboardAndDriveMapping {
         Write-Host "Invalid choice. Aborting..."
     }
 }
+
+function Enable-RDPSavedCredentials {
+# Define the registry path and value
+$regPath = "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp"
+$valueName = "fPromptForPassword"
+
+# Check if the registry value exists and retrieve the current value
+try {
+    $regKey = Get-Item -Path $regPath
+    $currentValue = Get-ItemProperty -Path $regPath -Name $valueName | Select-Object -ExpandProperty $valueName
+
+    # Display the current setting
+    if ($currentValue -eq 1) {
+        Write-Host "The setting 'Always prompt for password upon connection' is currently ENABLED."
+    } else {
+        Write-Host "The setting 'Always prompt for password upon connection' is currently DISABLED."
+    }
+
+    # Ask the user for confirmation to change the setting
+    $confirmation = Read-Host "Do you want to toggle the setting? (Y/N)"
+
+    if ($confirmation -eq "Y") {
+        # Toggle the setting
+        $newValue = if ($currentValue -eq 1) { 0 } else { 1 }
+        Set-ItemProperty -Path $regPath -Name $valueName -Value $newValue
+
+        # Confirm the change
+        if ($newValue -eq 1) {
+            Write-Host "The setting has been ENABLED."
+        } else {
+            Write-Host "The setting has been DISABLED."
+        }
+    } else {
+        Write-Host "No changes were made."
+    }
+} catch {
+    Write-Host "An error occurred while accessing the registry: $_"
+}
+}
+
 # Display Menu and Capture User Input
 Display-Menu
 Write-Host "Type the number and press enter..." -ForegroundColor Yellow -nonewline; $action = Read-Host
@@ -927,6 +971,7 @@ switch ($action) {
     '18' { Upgrade-PSM }
     '996' { Open-HostsFile }
     '995' { Test-Connectivity }
+    '997' { Enable-RDPSavedCredentials }
     '30' { Open-CPMBin }
     '31' { Open-CPMLogs }
     '32' { Tail-CPMLog -LogType "PMTrace" }
