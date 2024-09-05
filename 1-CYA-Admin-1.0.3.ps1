@@ -37,11 +37,12 @@ function Display-Menu {
     Write-Host "------------COMMON--------------" -ForegroundColor White
     Write-Host -ForegroundColor Green 'Type 0 verify current .net version on this machine'
     Write-Host -ForegroundColor Yellow 'Type 9 to GET status of all CyberArk services on this server'
-    Write-Host -ForegroundColor Green 'Type 994 to copy files from \\tsclient\z\'
-    Write-Host -ForegroundColor Yellow 'Type 995 to test connectivity to any IP'
-    Write-Host -ForegroundColor Green 'Type 996 to open hosts file in notepad as admin'
-    Write-Host -ForegroundColor Yellow 'Type 997 to allow using cached credentials upon RDP connection'
-    Write-Host -ForegroundColor Green 'Type 999 to enable/disable/check clipboard and drive mapping in regedit'
+    Write-Host -ForegroundColor Green 'Type 993 to set/unset proxy server using registry'
+    Write-Host -ForegroundColor Yellow 'Type 994 to copy files from \\tsclient\z\'
+    Write-Host -ForegroundColor Green 'Type 995 to test connectivity to any IP'
+    Write-Host -ForegroundColor Yellow 'Type 996 to open hosts file in notepad as admin'
+    Write-Host -ForegroundColor Green 'Type 997 to allow using cached credentials upon RDP connection'
+    Write-Host -ForegroundColor Yellow 'Type 999 to enable/disable/check clipboard and drive mapping in regedit'
     Write-Host -ForegroundColor Red 'Type 1000 to RESTART ALL CyberArk services on this server'
     Write-Host -ForegroundColor Red 'Type 1001 to START ALL CyberArk services on this server'
     Write-Host -ForegroundColor Red 'Type 1002 to STOP ALL CyberArk services on this server'
@@ -92,6 +93,47 @@ function Display-Menu {
     Write-Host -ForegroundColor Red 'Type 49 to RESTART IIS'
     Write-Host "--------------------------------" -ForegroundColor White
     Write-Host ' '
+}
+
+# Define the registry path for Internet Settings
+function Set-ProxyServer {
+    $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings"
+
+    # Check current proxy settings
+    $currentProxyEnable = (Get-ItemProperty -Path $regPath -Name ProxyEnable -ErrorAction SilentlyContinue).ProxyEnable
+    $currentProxyServer = (Get-ItemProperty -Path $regPath -Name ProxyServer -ErrorAction SilentlyContinue).ProxyServer
+
+    # Output current settings
+    if ($currentProxyEnable -eq 1) {
+        Write-Host "Current proxy settings are enabled."
+        Write-Host "Proxy server: $currentProxyServer"
+    } else {
+        Write-Host "Proxy settings are currently disabled."
+    }
+
+    # Ask user for desired action
+    $action = Read-Host "Do you want to set up a proxy server or clear current settings? (Enter 'set' or 'clear')"
+
+    if ($action -eq "set") {
+        # Ask user for proxy server and port
+        $proxyIP = Read-Host "Enter the proxy server IP"
+        $proxyPort = Read-Host "Enter the proxy server port"
+        $proxyServer = "$($proxyIP):$($proxyPort)"  # Corrected line using subexpression
+
+        # Set the proxy server
+        Set-ItemProperty -Path $regPath -Name ProxyEnable -Value 1
+        Set-ItemProperty -Path $regPath -Name ProxyServer -Value $proxyServer
+
+        Write-Host "Proxy server has been set to $proxyServer."
+    } elseif ($action -eq "clear") {
+        # Clear the proxy settings
+        Set-ItemProperty -Path $regPath -Name ProxyEnable -Value 0
+        Remove-ItemProperty -Path $regPath -Name ProxyServer -ErrorAction SilentlyContinue
+
+        Write-Host "Proxy settings have been cleared."
+    } else {
+        Write-Host "Invalid choice. Please run the script again and choose 'set' or 'clear'."
+    }
 }
 
 # Function to check .NET version
@@ -988,6 +1030,7 @@ switch ($action) {
     '47' { Open-CyberArkFolder }
     '48' { Open-InetpubLogsFolder }
     '49' { Restart-IIS }
+    '993' { Set-ProxyServer }
     default {
         Write-Host "Invalid option selected. Please try again." -ForegroundColor Red
     }
