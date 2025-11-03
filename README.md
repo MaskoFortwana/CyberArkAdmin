@@ -27,9 +27,7 @@
 - **Type 6** - Open `\server\logs`  
 - **Type 7** - Open `\padr\conf`  
 - **Type 8** - Open `\padr\logs`  
-- **Type 01** - Collect vault logs (`cavaultmanager collectlogs`)  
-- **Type 02** - Restart PrivateArk Server service  
-- **Type 03** - Restart CyberArk Disaster Recovery service  
+- **Type 01** - Collect vault logs (`cavaultmanager collectlogs`)
 
 ---
 
@@ -51,6 +49,7 @@
 - **Type 24** - GET ALL Windows logs for specific user (choose user in next step)  
 - **Type 25** - Identify `PSM-XYZ12345678` user by name  
 - **Type 26** - Schedule PSM reboot when nobody is connected  
+- **Type 27** - Schedule PSM service stop when nobody is connected
 
 ---
 
