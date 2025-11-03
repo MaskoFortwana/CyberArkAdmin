@@ -59,8 +59,6 @@ function Display-Menu {
     Write-Host -ForegroundColor Yellow 'Type 7 to open \padr\conf'
     Write-Host -ForegroundColor Green 'Type 8 to open \padr\logs'
     Write-Host -ForegroundColor Yellow 'Type 01 to collect vault logs (cavaultmanager collectlogs)'
-    Write-Host -ForegroundColor Green 'Type 02 restart PrivateArk Server service'
-    Write-Host -ForegroundColor Yellow 'Type 03 restart CyberArk Disaster Recovery service'
     Write-Host "-------------PSM----------------" -ForegroundColor White
     Write-Host -ForegroundColor Green 'Type 10 to open PSM Components folder'
     Write-Host -ForegroundColor Yellow 'Type 11 to open PSM Logs folder'
@@ -79,6 +77,7 @@ function Display-Menu {
     Write-Host -ForegroundColor Green 'Type 24 to GET ALL Windows logs for specific user (choose user in next step)'
     Write-Host -ForegroundColor Yellow 'Type 25 to identify PSM-XYZ12345678 user by name'
     Write-Host -ForegroundColor Green 'Type 26 to schedule PSM reboot when nobody is connected'
+    Write-Host -ForegroundColor Yellow 'Type 27 to schedule PSM service stop when nobody is connected'
     Write-Host "-------------CPM----------------" -ForegroundColor White
     Write-Host -ForegroundColor Green 'Type 30 to open CPM bin folder'
     Write-Host -ForegroundColor Yellow 'Type 31 to open CPM Logs folder'
@@ -181,7 +180,7 @@ function Tail-ItaLog {
 
 function Get-CyberArkServicesStatus {
     Write-Host -ForegroundColor Yellow "Getting CyberArk services status"
-    Get-Service *ark* | Select-Object Name, StartType, Status
+    Get-Service *ark*, *rab* | Select-Object Name, StartType, Status
 }
 
 function Open-ServerConf {
@@ -1000,8 +999,8 @@ function Create-PSMRebootTask {
 
     # Define the script content
     $scriptContent = @'
-# Define the username to check
-$usernameToCheck = "psmconnect"
+# Define the username pattern to check
+$usernamePattern = "*psmconnect*"
 
 # Infinite loop to check every 1 minute
 while ($true) {
@@ -1015,15 +1014,17 @@ while ($true) {
         ($_ -replace '\s{2,}', ',').Split(',')[0].Trim()
     }
 
-    # Check if the username is present in the logged-in users
-    if ($loggedInUsers -notcontains $usernameToCheck) {
-        # If the username is not found, restart the server
-        Write-Host "User '$usernameToCheck' not found. Restarting the server..."
+    # Check if any username matches the pattern
+    $matchingUsers = $loggedInUsers | Where-Object { $_ -like $usernamePattern }
+    
+    if ($matchingUsers.Count -eq 0) {
+        # If no matching username is found, restart the server
+        Write-Host "No user matching '$usernamePattern' found. Restarting the server..."
         shutdown /r /t 0
         break
     } else {
-        # If the username is found, wait for 5 minutes
-        Write-Host "User '$usernameToCheck' is logged in. Checking again in 1 minute..."
+        # If matching username is found, wait for 1 minute
+        Write-Host "User(s) matching '$usernamePattern' are logged in: $($matchingUsers -join ', '). Checking again in 1 minute..."
         Start-Sleep -Seconds 60
     }
 }
@@ -1107,8 +1108,136 @@ while ($true) {
     Remove-Item -Path $taskXmlPath -Force
 
     Write-Host "Scheduled task '$taskName' created successfully."
-    Write-Host "The script will run at $startTime and will check every minute if the user 'psmconnect' is logged in."
-    Write-Host "If 'psmconnect' is not logged in, the server will restart. The task will end at $endTime."
+    Write-Host "The script will run at $startTime and will check every minute if any user matching '*psmconnect*' is logged in."
+    Write-Host "If no matching user is logged in, the server will restart. The task will end at $endTime."
+}
+
+# Function to create a scheduled task to stop PSM service if a PSMConnect user is not logged in
+function Create-PSMServiceStopTask {
+    param (
+        [string]$scriptPath = "C:\scripts\psm-service-stop-gracefully.ps1",
+        [string]$taskName = "\CyberArk\PSM Graceful Service Stop"
+    )
+
+    # Ensure the script directory exists
+    $scriptDir = [System.IO.Path]::GetDirectoryName($scriptPath)
+    if (-not (Test-Path -Path $scriptDir)) {
+        New-Item -ItemType Directory -Path $scriptDir -Force
+    }
+
+    # Define the script content
+    $scriptContent = @'
+# Define the username pattern to check
+$usernamePattern = "*psmconnect*"
+
+# Infinite loop to check every 1 minute
+while ($true) {
+    # Run the 'query user' command and parse the output
+    $queryResult = query user
+
+    # Extract usernames from the query result
+    $loggedInUsers = $queryResult | ForEach-Object {
+        # Split each line into columns by whitespace, ignoring the header line
+        if ($_ -match "USERNAME") { return }
+        ($_ -replace '\s{2,}', ',').Split(',')[0].Trim()
+    }
+
+    # Check if any username matches the pattern
+    $matchingUsers = $loggedInUsers | Where-Object { $_ -like $usernamePattern }
+    
+    if ($matchingUsers.Count -eq 0) {
+        # If no matching username is found, stop the PSM service
+        Write-Host "No user matching '$usernamePattern' found. Stopping CyberArk Privileged Session Manager service..."
+        Stop-Service 'CyberArk Privileged Session Manager' -Force
+        break
+    } else {
+        # If matching username is found, wait for 1 minute
+        Write-Host "User(s) matching '$usernamePattern' are logged in: $($matchingUsers -join ', '). Checking again in 1 minute..."
+        Start-Sleep -Seconds 60
+    }
+}
+'@
+
+    # Write the script content to the file
+    Set-Content -Path $scriptPath -Value $scriptContent -Force
+
+    # Get the current time and add 5 minutes
+    $startTime = (Get-Date).AddMinutes(5).ToString("yyyy-MM-ddTHH:mm:ss")
+    $endTime = (Get-Date).AddMinutes(5).AddHours(24).ToString("yyyy-MM-ddTHH:mm:ss")
+
+    # Get the current user's SID
+    $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+    $userSid = $currentUser.User.Value
+
+    # Check if the task already exists and remove it if it does
+    $existingTask = schtasks /query /tn $taskName 2>$null
+    if ($existingTask) {
+        schtasks /delete /tn $taskName /f
+        Write-Host "Existing task '$taskName' found and removed."
+    }
+
+    # Define the XML content for the scheduled task
+    $taskXml = @"
+<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Date>$(Get-Date -Format "yyyy-MM-ddTHH:mm:ss.fffffff")</Date>
+    <Author>$env:COMPUTERNAME\$env:USERNAME</Author>
+    <Description>stops PSM service when nobody is connected</Description>
+    <URI>$taskName</URI>
+  </RegistrationInfo>
+  <Triggers>
+    <TimeTrigger>
+      <StartBoundary>$startTime</StartBoundary>
+      <EndBoundary>$endTime</EndBoundary>
+      <ExecutionTimeLimit>P1D</ExecutionTimeLimit>
+      <Enabled>true</Enabled>
+    </TimeTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <UserId>$userSid</UserId>
+      <LogonType>S4U</LogonType>
+      <RunLevel>HighestAvailable</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>true</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>true</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>false</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+    <IdleSettings>
+      <StopOnIdleEnd>true</StopOnIdleEnd>
+      <RestartOnIdle>false</RestartOnIdle>
+    </IdleSettings>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <RunOnlyIfIdle>false</RunOnlyIfIdle>
+    <WakeToRun>false</WakeToRun>
+    <ExecutionTimeLimit>PT2H</ExecutionTimeLimit>
+    <Priority>7</Priority>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>powershell.exe</Command>
+      <Arguments>-ExecutionPolicy Bypass $scriptPath</Arguments>
+    </Exec>
+  </Actions>
+</Task>
+"@
+
+    # Create the scheduled task
+    $taskXmlPath = [System.IO.Path]::GetTempFileName()
+    Set-Content -Path $taskXmlPath -Value $taskXml -Force
+    schtasks /create /tn $taskName /xml $taskXmlPath /f
+    Remove-Item -Path $taskXmlPath -Force
+
+    Write-Host "Scheduled task '$taskName' created successfully."
+    Write-Host "The script will run at $startTime and will check every minute if any user matching '*psmconnect*' is logged in."
+    Write-Host "If no matching user is logged in, the PSM service will stop. The task will end at $endTime."
 }
 
 # Function to import a trusted certificate with intermediate and pfx
@@ -1221,7 +1350,8 @@ switch ($action) {
     '991' { Tail-CyberArkApplicationLogs }
     '111' { Open-PadrIni }
     '26' { Create-PSMRebootTask }
-    
+    '27' { Create-PSMServiceStopTask }
+
     
     default {
         Write-Host "Invalid option selected. Please try again." -ForegroundColor Red
